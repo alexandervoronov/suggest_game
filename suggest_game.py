@@ -16,13 +16,15 @@ def parse_args():
                         help='Don\'t interpret last word as a whole one')
     parser.add_argument('-b', '--batch', dest='batch', default=None,
                         help='JSON file with batch request.')
+    parser.add_argument('--proxy', dest='proxy', default=None,
+                        help='Proxy setting')
     
     return parser.parse_args()
 
-def retrieve_suggests(request, partial=False):
+def retrieve_suggests(request, partial=False, proxy=None):
     request_string = ' '.join(request) + (' ' if not args.partial else '')
     query = suggest_url.format(request_string)
-    response = requests.get(query)
+    response = requests.get(query, proxies=proxy)
     answers = response.json()[1]
     return answers
 
@@ -33,14 +35,14 @@ def convert_to_markdown(request, answers):
     markdown_string += '\n'
     return markdown_string
 
-def json_batch_suggests(json_path, partial=False):
+def json_batch_suggests(json_path, partial=False, proxy=None):
     assert os.path.isfile(json_path)
     requests = []
     md = ''
     with open(json_path, encoding='utf8') as f:
         requests = json.load(f)
     for single_request in requests:
-        ans = retrieve_suggests([single_request], partial)
+        ans = retrieve_suggests([single_request], partial, proxy)
         req_md = convert_to_markdown(single_request, ans)
         md += req_md
     return md
@@ -48,10 +50,16 @@ def json_batch_suggests(json_path, partial=False):
 if __name__ == '__main__':
     args = parse_args()
     md = ''
+    proxy = None
+    if args.proxy:
+        proxy = {
+            "http"  : "{}".format(args.proxy),
+            "https" : "{}".format(args.proxy)
+        }
     if args.batch:
-        md = json_batch_suggests(args.batch, args.partial)
+        md = json_batch_suggests(args.batch, args.partial, proxy)
     elif args.request:
-        answers = retrieve_suggests(args.request, args.partial)
+        answers = retrieve_suggests(args.request, args.partial, proxy)
         md = convert_to_markdown(' '.join(args.request), answers)
 
     print(md)
